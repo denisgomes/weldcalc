@@ -4,7 +4,7 @@
   <settings dpi="96">
     <identity>
       <id>20718a60-42d5-44b7-a7d4-1a41f3e65011</id>
-      <revision>3</revision>
+      <revision>5</revision>
     </identity>
     <calculation>
       <precision>4</precision>
@@ -98,20 +98,38 @@
       </result>
     </math>
   </region>
-  <region id="4" left="0" top="261" width="238" height="42" color="#000000" bgColor="#ffffff" fontSize="10">
+  <region id="4" left="0" top="270" width="173" height="43" color="#000000" bgColor="#ffffff" fontSize="10">
+    <math>
+      <input>
+        <e type="operand">a</e>
+        <e type="operand">1</e>
+        <e type="operand">2</e>
+        <e type="function" args="1">sqrt</e>
+        <e type="operator" args="2">/</e>
+        <e type="operand">t.w</e>
+        <e type="operator" args="2">*</e>
+        <e type="operator" args="2">:</e>
+      </input>
+      <contract>
+        <e type="operand" style="unit">in</e>
+      </contract>
+      <result action="numeric">
+        <e type="operand">0.1768</e>
+      </result>
+    </math>
+  </region>
+  <region id="5" left="0" top="342" width="220" height="42" color="#000000" bgColor="#ffffff" fontSize="10">
     <math>
       <input>
         <e type="operand">I.x</e>
         <e type="operand">1</e>
         <e type="operand">12</e>
         <e type="operator" args="2">/</e>
-        <e type="operand">1</e>
-        <e type="operator" args="2">*</e>
-        <e type="operand" style="unit">in</e>
-        <e type="operator" args="2">*</e>
         <e type="operand">L.w</e>
         <e type="operand">3</e>
         <e type="operator" args="2">^</e>
+        <e type="operator" args="2">*</e>
+        <e type="operand">a</e>
         <e type="operator" args="2">*</e>
         <e type="operator" args="2">:</e>
       </input>
@@ -121,26 +139,15 @@
         <e type="operator" args="2">^</e>
       </contract>
       <result action="numeric">
-        <e type="operand">83.3333</e>
+        <e type="operand">14.7314</e>
       </result>
     </math>
   </region>
-  <region id="5" left="0" top="333" width="238" height="43" color="#000000" bgColor="#ffffff" fontSize="10">
+  <region id="6" left="0" top="414" width="107" height="39" color="#000000" bgColor="#ffffff" fontSize="10">
     <math>
       <input>
         <e type="operand">I.y</e>
-        <e type="operand">1</e>
-        <e type="operand">12</e>
-        <e type="operator" args="2">/</e>
-        <e type="operand">L.w</e>
-        <e type="operator" args="2">*</e>
-        <e type="operand">1</e>
-        <e type="operand" style="unit">in</e>
-        <e type="operator" args="2">*</e>
-        <e type="bracket">(</e>
-        <e type="operand">3</e>
-        <e type="operator" args="2">^</e>
-        <e type="operator" args="2">*</e>
+        <e type="operand">0</e>
         <e type="operator" args="2">:</e>
       </input>
       <contract>
@@ -149,11 +156,11 @@
         <e type="operator" args="2">^</e>
       </contract>
       <result action="numeric">
-        <e type="operand">0.8333</e>
+        <e type="operand">0</e>
       </result>
     </math>
   </region>
-  <region id="6" left="0" top="414" width="197" height="39" color="#000000" bgColor="#ffffff" fontSize="10">
+  <region id="7" left="0" top="495" width="197" height="39" color="#000000" bgColor="#ffffff" fontSize="10">
     <math>
       <input>
         <e type="operand">I.z</e>
@@ -168,11 +175,11 @@
         <e type="operator" args="2">^</e>
       </contract>
       <result action="numeric">
-        <e type="operand">84.1667</e>
+        <e type="operand">14.7314</e>
       </result>
     </math>
   </region>
-  <region id="7" left="0" top="495" width="347" height="81" color="#000000" bgColor="#ffffff" fontSize="10">
+  <region id="8" left="0" top="576" width="307" height="81" color="#000000" bgColor="#ffffff" fontSize="10">
     <math>
       <input>
         <e type="operand">I</e>
@@ -196,22 +203,22 @@
         <e type="operator" args="2">^</e>
       </contract>
       <result action="numeric">
-        <e type="operand">83.3333</e>
+        <e type="operand">14.7314</e>
         <e type="operand">0</e>
         <e type="operand">0</e>
         <e type="operand">0</e>
-        <e type="operand">0.8333</e>
         <e type="operand">0</e>
         <e type="operand">0</e>
         <e type="operand">0</e>
-        <e type="operand">84.1667</e>
+        <e type="operand">0</e>
+        <e type="operand">14.7314</e>
         <e type="operand">3</e>
         <e type="operand">3</e>
         <e type="function" args="11">mat</e>
       </result>
     </math>
   </region>
-  <region id="8" left="0" top="639" width="98" height="24" color="#000000" bgColor="#ffffff" fontSize="10">
+  <region id="9" left="0" top="720" width="98" height="24" color="#000000" bgColor="#ffffff" fontSize="10">
     <math>
       <input>
         <e type="operand">ang</e>
@@ -222,7 +229,7 @@
       </input>
     </math>
   </region>
-  <region id="9" left="0" top="693" width="307" height="67" color="#000000" bgColor="#ffffff" fontSize="10">
+  <region id="10" left="0" top="774" width="307" height="67" color="#000000" bgColor="#ffffff" fontSize="10">
     <math>
       <input>
         <e type="operand">R.z</e>
@@ -262,7 +269,7 @@
       </result>
     </math>
   </region>
-  <region id="10" left="0" top="783" width="359" height="63" color="#000000" bgColor="#ffffff" fontSize="10">
+  <region id="11" left="0" top="864" width="319" height="63" color="#000000" bgColor="#ffffff" fontSize="10">
     <math>
       <input>
         <e type="operand">I.rot</e>
@@ -280,18 +287,65 @@
         <e type="operator" args="2">^</e>
       </contract>
       <result action="numeric">
-        <e type="operand">0.8333</e>
         <e type="operand">0</e>
         <e type="operand">0</e>
         <e type="operand">0</e>
-        <e type="operand">83.3333</e>
+        <e type="operand">0</e>
+        <e type="operand">14.7314</e>
         <e type="operand">0</e>
         <e type="operand">0</e>
         <e type="operand">0</e>
-        <e type="operand">84.1667</e>
+        <e type="operand">14.7314</e>
         <e type="operand">3</e>
         <e type="operand">3</e>
         <e type="function" args="11">mat</e>
+      </result>
+    </math>
+  </region>
+  <region id="12" left="0" top="1107" width="74" height="24" color="#000000" bgColor="#ffffff" fontSize="10">
+    <math>
+      <input>
+        <e type="operand">H</e>
+        <e type="operand">10</e>
+        <e type="operand" style="unit">in</e>
+        <e type="operator" args="2">*</e>
+        <e type="operator" args="2">:</e>
+      </input>
+    </math>
+  </region>
+  <region id="13" left="0" top="1152" width="74" height="24" color="#000000" bgColor="#ffffff" fontSize="10">
+    <math>
+      <input>
+        <e type="operand">B</e>
+        <e type="operand">10</e>
+        <e type="operand" style="unit">in</e>
+        <e type="operator" args="2">*</e>
+        <e type="operator" args="2">:</e>
+      </input>
+    </math>
+  </region>
+  <region id="14" left="0" top="1206" width="207" height="50" color="#000000" bgColor="#ffffff" fontSize="10">
+    <math>
+      <input>
+        <e type="operand">I.2</e>
+        <e type="operand">a</e>
+        <e type="operand">B</e>
+        <e type="operand">H</e>
+        <e type="operand">2</e>
+        <e type="operator" args="2">^</e>
+        <e type="operator" args="2">*</e>
+        <e type="operand">2</e>
+        <e type="operator" args="2">/</e>
+        <e type="operator" args="2">*</e>
+        <e type="operator" args="2">:</e>
+      </input>
+      <contract>
+        <e type="operand" style="unit">in</e>
+        <e type="operand">4</e>
+        <e type="operator" args="2">^</e>
+      </contract>
+      <result action="numeric">
+        <e type="operand">88.3883</e>
       </result>
     </math>
   </region>
