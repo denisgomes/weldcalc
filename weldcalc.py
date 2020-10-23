@@ -16,7 +16,8 @@ https://en.wikipedia.org/wiki/Parallel_axis_theorem
 """
 
 import tkinter
-from collections import defaultdict
+from itertools import groupby
+from operator import attrgetter
 
 import numpy as np
 from numpy import linalg as la
@@ -26,6 +27,8 @@ from matplotlib.backends.backend_tkagg import (
 # Implement the default Matplotlib key bindings.
 from matplotlib.backend_bases import key_press_handler
 from matplotlib.figure import Figure
+
+import matplotlib.pyplot as plt
 
 
 class WeldLine:
@@ -283,6 +286,13 @@ class WeldGroup:
         return self.inertia()[2, 2]
 
     def plot(self):
+
+        def merge_points(weld_lines, tol=0.1):
+            """Merge the points for the weld lines to create a continuous x and
+            y cooridnate data arrays used for plotting.
+            """
+            pass
+
         root = tkinter.Tk()
         root.wm_title("Weld Group Properties")
 
@@ -298,7 +308,7 @@ class WeldGroup:
         ax.grid(which='major', linestyle='-', linewidth='0.5', color='red')
         ax.grid(which='minor', linestyle=':', linewidth='0.5', color='black')
 
-        # orgin and cg
+        # orgin and cg points
         ax.scatter((0, 0), self.cg()[:2])
 
         # texts
@@ -310,11 +320,26 @@ class WeldGroup:
         ax.text(1.25, 0, "X")
         ax.text(0, 1.25, "Y")
 
-        for weld_line in self.weld_lines:
-            xs, ys = zip(weld_line.from_point[:2], weld_line.to_point[:2])
-            ax.plot(xs, ys, marker="o",
-                    label="tw = %s, %s" % (weld_line.size,
-                                           weld_line.weld_type))
+        # plot weld lines
+        legend_labels = []
+        legend_handles = []
+        color_map = plt.get_cmap("gist_rainbow")
+        kfunc = lambda wl: (wl.size, wl.weld_type)
+        # need to sort to avoid unexpected results
+        sorted_list = sorted(self.weld_lines, key=kfunc)
+        for ((size, weld_type), weld_lines) in groupby(sorted_list, key=kfunc):
+            color = color_map(np.random.rand())
+            for i, weld_line in enumerate(weld_lines):
+                xs, ys = zip(weld_line.from_point[:2], weld_line.to_point[:2])
+                lines = ax.plot(xs, ys)
+
+                lines[0].set_color(color)
+                lines[0].set_linewidth(1+size)
+
+            legend_handles.append(lines[0])
+            legend_labels.append(r"$t_w=%s$, %s" % (size, weld_type))
+
+        ax.legend(handles=legend_handles, labels=legend_labels, loc="best")
 
         # output property box
         textstr = '\n'.join((
@@ -323,17 +348,15 @@ class WeldGroup:
             r'$I_x=%.3f$' % (self.ixx(), ),
             r'$I_y=%.3f$' % (self.iyy(), ),
             r'$I_z=%.3f$' % (self.izz(), ),
-            r'$CG=%s$' % (str(self.cg()), ),
+            r'$CG=(%.3f,%.3f,%.3f)$' % (*self.cg(), ),
             ))
 
         # these are matplotlib.patch.Patch properties
         props = dict(boxstyle='square', facecolor='wheat', alpha=0.5)
 
         # place a text box in upper left in axes coords
-        ax.text(0.02, 0.985, textstr, transform=ax.transAxes, fontsize=10,
+        ax.text(0.015, 0.985, textstr, transform=ax.transAxes, fontsize=10,
                 verticalalignment='top', bbox=props)
-
-        ax.legend(loc="best")
 
         canvas = FigureCanvasTkAgg(fig, master=root)  # A tk.DrawingArea.
         canvas.draw()
@@ -350,13 +373,6 @@ class WeldGroup:
             key_press_handler(event, canvas, toolbar)
 
         canvas.mpl_connect("key_press_event", on_key_press)
-
-        # def _quit():
-        #     root.quit()     # stops mainloop
-        #     root.destroy()  # this is necessary on Windows to prevent
-
-        # button = tkinter.Button(master=root, text="Quit", command=_quit)
-        # button.pack(side=tkinter.BOTTOM)
 
         tkinter.mainloop()
 
@@ -450,21 +466,9 @@ class MultiWeldGroup:
 
 if __name__ == "__main__":
     wg1 = WeldGroup()
-    wg1.add_weld_line((-2.5, -5), (-2.5, 5), 0.25, "fillet")
-    wg1.add_weld_line((2.5, -5), (2.5, 5), 0.25, "fillet")
+    wg1.add_weld_line((-2.5, -5), (-2.5, 5), 0.5, "fillet")
+    wg1.add_weld_line((2.5, -5), (2.5, 5), 0.5, "fillet")
     wg1.add_weld_line((-2.5, 5), (2.5, 5), 0.25, "fillet")
-    wg1.add_weld_line((-2.5, -5), (2.5, -5), 0.25, "fillet")
-
-    # wg2 = WeldGroup()
-    # wg2.add_weld_line((-2.5, -5), (-2.5, 5), 0.25, "fillet")
-    # wg2.add_weld_line((2.5, -5), (2.5, 5), 0.25, "fillet")
-    # wg2.add_weld_line((-2.5, 5), (2.5, 5), 0.25, "fillet")
-    # wg2.add_weld_line((-2.5, -5), (2.5, -5), 0.25, "fillet")
-    # wg2.translate(0, 5, 5)
-    # wg2.rotateX(90)
-
-    # mwg = MultiWeldGroup()
-    # mwg.add_weld_group(wg1)
-    # mwg.add_weld_group(wg2)
+    wg1.add_weld_line((-2.5, -5), (2.5, -5), 1.25, "fillet")
 
     wg1.plot()
