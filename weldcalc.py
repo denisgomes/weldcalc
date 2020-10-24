@@ -28,6 +28,8 @@ from matplotlib.backends.backend_tkagg import (
 from matplotlib.backend_bases import key_press_handler
 from matplotlib.figure import Figure
 
+from mpl_toolkits.mplot3d import Axes3D
+
 import matplotlib.pyplot as plt
 
 
@@ -150,7 +152,14 @@ class WeldGroup:
     different weld sizes.
     """
 
-    def __init__(self):
+    count = 0
+
+    def __init__(self, name=None):
+        self.name = name
+        if self.name is None:
+            self.name = str(WeldGroup.count)
+            WeldGroup.count += 1
+
         self.weld_lines = []
         self._transform = np.eye(4)
 
@@ -286,13 +295,6 @@ class WeldGroup:
         return self.inertia()[2, 2]
 
     def plot(self):
-
-        def merge_points(weld_lines, tol=0.1):
-            """Merge the points for the weld lines to create a continuous x and
-            y cooridnate data arrays used for plotting.
-            """
-            pass
-
         root = tkinter.Tk()
         root.wm_title("Weld Group Properties")
 
@@ -301,6 +303,8 @@ class WeldGroup:
         ax.set_xlim(-10, 10)
         ax.set_ylim(-10, 10)
         ax.set_aspect("equal")
+        ax.set_xlabel("X")
+        ax.set_ylabel("Y")
 
         # grid
         ax.grid()
@@ -309,7 +313,7 @@ class WeldGroup:
         ax.grid(which='minor', linestyle=':', linewidth='0.5', color='black')
 
         # orgin and cg points
-        ax.scatter((0, 0), self.cg()[:2])
+        ax.scatter(*zip((0, 0), self.cg()[:2]))
 
         # texts
         ax.text(*self.cg()[:2], "CG")
@@ -345,9 +349,9 @@ class WeldGroup:
         textstr = '\n'.join((
             r'$L_w=%.3f$' % (self.length(), ),
             r'$A_w=%.3f$' % (self.area(), ),
-            r'$I_x=%.3f$' % (self.ixx(), ),
-            r'$I_y=%.3f$' % (self.iyy(), ),
-            r'$I_z=%.3f$' % (self.izz(), ),
+            r'$I_{xcg}=%.3f$' % (self.ixx(), ),
+            r'$I_{ycg}=%.3f$' % (self.iyy(), ),
+            r'$I_{zcg}=%.3f$' % (self.izz(), ),
             r'$CG=(%.3f,%.3f,%.3f)$' % (*self.cg(), ),
             ))
 
@@ -463,6 +467,94 @@ class MultiWeldGroup:
         """Inertia of weld line about the z axis"""
         return self.inertia()[2, 2]
 
+    def plot(self):
+        root = tkinter.Tk()
+        root.wm_title("Multi-Weld Group Properties")
+
+        # plot here
+        fig = Figure(figsize=(5, 4), dpi=100)
+
+        canvas = FigureCanvasTkAgg(fig, master=root)  # A tk.DrawingArea.
+        canvas.draw()
+
+        ax = fig.add_subplot(111, projection="3d")
+        ax.set_xlim(-10, 10)
+        ax.set_ylim(-10, 10)
+        ax.set_zlim(-10, 10)
+        ax.set_aspect("equal")
+        ax.set_proj_type("ortho")
+        ax.set_xlabel("X")
+        ax.set_ylabel("Y")
+        ax.set_zlabel("Z")
+
+        # grid
+        ax.grid()
+        ax.minorticks_on()
+        ax.grid(which='major', linestyle='-', linewidth='0.5', color='red')
+        ax.grid(which='minor', linestyle=':', linewidth='0.5', color='black')
+
+        # orgin and cg points
+        ax.scatter(*zip((0, 0, 0), self.cg()))
+
+        # texts
+        ax.text(*self.cg(), "CG")
+
+        # coordinate arrows
+        ax.quiver(0, 0, 0, 1, 0, 0, length=1.0)
+        ax.quiver(0, 0, 0, 0, 1, 0, length=1.0)
+        ax.quiver(0, 0, 0, 0, 0, 1, length=1.0)
+        ax.text(1.25, 0, 0, "X")
+        ax.text(0, 1.25, 0, "Y")
+        ax.text(0, 0, 1.25, "Z")
+
+        # plot weld groups
+        legend_labels = []
+        legend_handles = []
+        color_map = plt.get_cmap("gist_rainbow")
+        for weld_group in self.weld_groups:
+            color = color_map(np.random.rand())
+            for weld_line in weld_group.weld_lines:
+                xs, ys, zs = zip(weld_line.from_point, weld_line.to_point)
+                lines = ax.plot(xs, ys, zs)
+
+                lines[0].set_color(color)
+                lines[0].set_linewidth(1+weld_line.size)
+
+            legend_handles.append(lines[0])
+            legend_labels.append(r"WeldGroup [%s]" % weld_group.name)
+
+        ax.legend(handles=legend_handles, labels=legend_labels, loc="best")
+
+        # output property box
+        textstr = '\n'.join((
+            r'$L_w=%.3f$' % (self.length(), ),
+            r'$A_w=%.3f$' % (self.area(), ),
+            r'$I_{xcg}=%.3f$' % (self.ixx(), ),
+            r'$I_{ycg}=%.3f$' % (self.iyy(), ),
+            r'$I_{zcg}=%.3f$' % (self.izz(), ),
+            r'$CG=(%.3f,%.3f,%.3f)$' % (*self.cg(), ),
+            ))
+
+        # these are matplotlib.patch.Patch properties
+        props = dict(boxstyle='square', facecolor='wheat', alpha=0.5)
+
+        # place a text box in upper left in axes coords
+        ax.text2D(0.015, 0.985, textstr, transform=ax.transAxes, fontsize=10,
+                  verticalalignment='top', bbox=props)
+
+        toolbar = NavigationToolbar2Tk(canvas, root)
+        toolbar.update()
+        canvas.get_tk_widget().pack(side=tkinter.TOP, fill=tkinter.BOTH,
+                                    expand=1)
+
+        def on_key_press(event):
+            print("you pressed {}".format(event.key))
+            key_press_handler(event, canvas, toolbar)
+
+        canvas.mpl_connect("key_press_event", on_key_press)
+
+        tkinter.mainloop()
+
 
 if __name__ == "__main__":
     wg1 = WeldGroup()
@@ -471,4 +563,15 @@ if __name__ == "__main__":
     wg1.add_weld_line((-2.5, 5), (2.5, 5), 0.25, "fillet")
     wg1.add_weld_line((-2.5, -5), (2.5, -5), 1.25, "fillet")
 
-    wg1.plot()
+    wg2 = WeldGroup()
+    wg2.add_weld_line((-2.5, -5), (-2.5, 5), 0.5, "fillet")
+    wg2.add_weld_line((2.5, -5), (2.5, 5), 0.5, "fillet")
+    wg2.add_weld_line((-2.5, 5), (2.5, 5), 0.25, "fillet")
+    wg2.add_weld_line((-2.5, -5), (2.5, -5), 1.25, "fillet")
+    wg2.translate(0, 5, 5)
+    wg2.rotateX(90)
+
+    mwg = MultiWeldGroup()
+    mwg.add_weld_group(wg1)
+    mwg.add_weld_group(wg2)
+    mwg.plot()
