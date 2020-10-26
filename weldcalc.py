@@ -17,7 +17,6 @@ https://en.wikipedia.org/wiki/Parallel_axis_theorem
 
 import tkinter
 from itertools import groupby
-from operator import attrgetter
 
 import numpy as np
 from numpy import linalg as la
@@ -36,17 +35,29 @@ import matplotlib.pyplot as plt
 class WeldLine:
     """A single weld line.
 
-    A weld line is created with respect to the local weld axis initially
-    located at the origin (0, 0).
+    A weld line is created with respect to the local weld axis located at the
+    origin (0, 0). Initially, the local weld line and 'global' weld group
+    coordinate systems are at the same location. When a rotation is specified
+    for the weld group, the weld line local and global coordinates are no
+    longer aligned. Rotation of a weld line takes place with respect to the
+    weld group coordinate system.
 
-    Initially, the local and global coordinate systems are at the same
-    location.
+    Parameters
+    ----------
+    from_point : tuple
+        From point (x1, y1) in object coordinates.
 
-    When a rotation is specified, the local and global coordinates are no
-    longer aligned.
+    to_point : tuple
+        To point (x1, y1) in object coordinates.
 
-    Rotation of a weld line takes place with respect to the local coordinate
-    system of the weld.
+    size : float
+        Weld size.
+
+    weld_type : str
+        Type of weld. 'Fillet' for example.
+
+    weld_group : WeldGroup
+        Instance of a weld group.
     """
 
     def __init__(self, from_point, to_point, size, weld_type="fillet",
@@ -150,6 +161,12 @@ class WeldLine:
 class WeldGroup:
     """A planar weld group consisting of several weld lines with similar or
     different weld sizes.
+
+    Parameters
+    ----------
+    name : str
+        Name of weld group. A number of automatically assigned if not
+        specified.
     """
 
     count = 0
@@ -165,6 +182,7 @@ class WeldGroup:
 
     @property
     def transform(self):
+        """Weld group transformation matrix"""
         return self._transform
 
     def add_weld_line(self, from_point, to_point, size, weld_type="fillet"):
@@ -182,7 +200,8 @@ class WeldGroup:
 
     def cg(self):
         """Center of gravity of weld group. CG is based on the length of each
-        weld line, similar to the center of gravity of an area.
+        weld line, similar to how the center of gravity of an area is based on
+        the area.
         """
         cx, cy, cz = 0, 0, 0
         wt = 0
@@ -382,9 +401,33 @@ class WeldGroup:
 
 
 class MultiWeldGroup:
-    """A collection of weld groups in 3 dimensional space.
+    """A collection of weld groups in 3 dimensional space. Multiple planar weld
+    groups are transformed to create a combined weld in 3d.
 
-    Planar weld groups are transformed to create a combined weld in 3d.
+    Example
+    -------
+    Create a multi weld group consisting of two planar welds and plot.
+
+    .. code-block:: python
+
+        >>> wg1 = WeldGroup()
+        >>> wg1.add_weld_line((-2.5, -5), (-2.5, 5), 0.25, "fillet")
+        >>> wg1.add_weld_line((2.5, -5), (2.5, 5), 0.25, "fillet")
+        >>> wg1.add_weld_line((-2.5, 5), (2.5, 5), 0.25, "fillet")
+        >>> wg1.add_weld_line((-2.5, -5), (2.5, -5), 0.25, "fillet")
+
+        >>> wg2 = WeldGroup()
+        >>> wg2.add_weld_line((-2.5, -5), (-2.5, 5), 0.5, "fillet")
+        >>> wg2.add_weld_line((2.5, -5), (2.5, 5), 0.5, "fillet")
+        >>> wg2.add_weld_line((-2.5, 5), (2.5, 5), 0.25, "fillet")
+        >>> wg2.add_weld_line((-2.5, -5), (2.5, -5), 1.25, "fillet")
+        >>> wg2.translate(0, 5, 5)
+        >>> wg2.rotateX(90)
+
+        >>> mwg = MultiWeldGroup()
+        >>> mwg.add_weld_group(wg1)
+        >>> mwg.add_weld_group(wg2)
+        >>> mwg.plot()
     """
 
     def __init__(self):
@@ -423,7 +466,7 @@ class MultiWeldGroup:
 
     def inertia(self):
         """Inertia matrix w.r.t the center of the weld line and about axis
-        located at the origin.
+        located at the global origin.
 
         See references [1] and [2].
         """
@@ -558,20 +601,20 @@ class MultiWeldGroup:
 
 if __name__ == "__main__":
     wg1 = WeldGroup()
-    wg1.add_weld_line((-2.5, -5), (-2.5, 5), 0.5, "fillet")
-    wg1.add_weld_line((2.5, -5), (2.5, 5), 0.5, "fillet")
+    wg1.add_weld_line((-2.5, -5), (-2.5, 5), 0.25, "fillet")
+    wg1.add_weld_line((2.5, -5), (2.5, 5), 0.25, "fillet")
     wg1.add_weld_line((-2.5, 5), (2.5, 5), 0.25, "fillet")
-    wg1.add_weld_line((-2.5, -5), (2.5, -5), 1.25, "fillet")
+    wg1.add_weld_line((-2.5, -5), (2.5, -5), 0.25, "fillet")
 
-    wg2 = WeldGroup()
-    wg2.add_weld_line((-2.5, -5), (-2.5, 5), 0.5, "fillet")
-    wg2.add_weld_line((2.5, -5), (2.5, 5), 0.5, "fillet")
-    wg2.add_weld_line((-2.5, 5), (2.5, 5), 0.25, "fillet")
-    wg2.add_weld_line((-2.5, -5), (2.5, -5), 1.25, "fillet")
-    wg2.translate(0, 5, 5)
-    wg2.rotateX(90)
+    # wg2 = WeldGroup()
+    # wg2.add_weld_line((-2.5, -5), (-2.5, 5), 0.5, "fillet")
+    # wg2.add_weld_line((2.5, -5), (2.5, 5), 0.5, "fillet")
+    # wg2.add_weld_line((-2.5, 5), (2.5, 5), 0.25, "fillet")
+    # wg2.add_weld_line((-2.5, -5), (2.5, -5), 1.25, "fillet")
+    # wg2.translate(0, 5, 5)
+    # wg2.rotateX(90)
 
     mwg = MultiWeldGroup()
     mwg.add_weld_group(wg1)
-    mwg.add_weld_group(wg2)
+    # mwg.add_weld_group(wg2)
     mwg.plot()
