@@ -9,8 +9,8 @@ from weldcalc import WeldGroup
 class TestSingleWeldGroup(unittest.TestCase):
 
     def setUp(self):
-        self.wg = WeldGroup()
-        self.wg.add_weld_line((0, -5), (0, 5), 0.25, "fillet")
+        self.wg = WeldGroup(size=0.25, weld_type="fillet")
+        self.wg.add_weld_line((0, -5), (0, 5))
 
     def test_length(self):
         """Test weld line length"""
@@ -36,11 +36,11 @@ class TestRectangleWeldGroup(unittest.TestCase):
     """
 
     def setUp(self):
-        self.wg = WeldGroup()
-        self.wg.add_weld_line((-2.5, -5), (-2.5, 5), 0.25, "fillet")
-        self.wg.add_weld_line((2.5, -5), (2.5, 5), 0.25, "fillet")
-        self.wg.add_weld_line((-2.5, 5), (2.5, 5), 0.25, "fillet")
-        self.wg.add_weld_line((-2.5, -5), (2.5, -5), 0.25, "fillet")
+        self.wg = WeldGroup(size=0.25, weld_type="fillet")
+        self.wg.add_weld_line((-2.5, -5), (-2.5, 5))
+        self.wg.add_weld_line((2.5, -5), (2.5, 5))
+        self.wg.add_weld_line((-2.5, 5), (2.5, 5))
+        self.wg.add_weld_line((-2.5, -5), (2.5, -5))
 
     def test_cg(self):
         self.assertEqual((0, 0, 0), self.wg.cg())
@@ -75,7 +75,7 @@ class TestCircleWeldGroup(unittest.TestCase):
     """
 
     def setUp(self):
-        self.wg = WeldGroup()
+        self.wg = WeldGroup(size=0.25, weld_type="fillet")
 
         self.R = R = 10     # radius of weld group
         nol = 100           # approximating weld lines
@@ -84,11 +84,11 @@ class TestCircleWeldGroup(unittest.TestCase):
         from_point = R*cos(radians(0)), R*sin(radians(0))
         for a in frange(ang, 360, ang):
             to_point = R*cos(radians(a)), R*sin(radians(a))
-            self.wg.add_weld_line(from_point, to_point, 0.25, "fillet")
+            self.wg.add_weld_line(from_point, to_point)
             from_point = to_point
         # last point
         to_point = R*cos(radians(360)), R*sin(radians(360))
-        self.wg.add_weld_line(from_point, to_point, 0.25, "fillet")
+        self.wg.add_weld_line(from_point, to_point)
 
     def test_cg(self):
         self.assertAlmostEqual((0, 0, 0), tuple(map(round, self.wg.cg())))

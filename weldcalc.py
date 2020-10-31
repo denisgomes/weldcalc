@@ -35,46 +35,53 @@ import matplotlib.pyplot as plt
 class WeldLine:
     """A single weld line.
 
-    A weld line is created with respect to the local weld axis located at the
-    origin (0, 0). Initially, the local weld line and 'global' weld group
-    coordinate systems are at the same location. When a rotation is specified
-    for the weld group, the weld line local and global coordinates are no
-    longer aligned. Rotation of a weld line takes place with respect to the
-    weld group coordinate system.
+    A weld line is created with respect to the weld group coordinate system
+    located at the origin (0, 0).
+
+    Initially, the weld group and global coordinate systems are at the same
+    location.
+
+    Each weld line also has a local coordinate system defined at the center
+    with y axis directed from the 'from' to the 'to' point. The z axis points
+    out of the screen and the x axis is the cross product of the x and z
+    axes vectors.
+
+    When a rotation is specified for the weld group, the weld line axes and
+    global coordinates are no longer aligned. Rotation of a weld line takes
+    place with respect to the weld group coordinate system.
 
     Parameters
     ----------
     from_point : tuple
-        From point (x1, y1) in object coordinates.
+        From point (x1, y1) in weld group coordinates.
 
     to_point : tuple
-        To point (x1, y1) in object coordinates.
-
-    size : float
-        Weld size.
-
-    weld_type : str
-        Type of weld. 'Fillet' for example.
+        To point (x1, y1) in weld group coordinates.
 
     weld_group : WeldGroup
         Instance of a weld group.
     """
 
-    def __init__(self, from_point, to_point, size, weld_type="fillet",
-                 weld_group=None):
+    def __init__(self, from_point, to_point, weld_group):
         self._from_point = np.array([*from_point, 0, 1])
         self._to_point = np.array([*to_point, 0, 1])
-        self.size = size
-        self.weld_type = weld_type
         self.weld_group = weld_group
+
+    @property
+    def size(self):
+        return self.weld_group.size
+
+    @property
+    def weld_type(self):
+        return self.weld_group.weld_type
 
     def transform(self):
         """The weld line object coordinate system, positioned at the center
         of the weld line.
 
-        Y is up.
-        X is to the right.
-        Z is out of the screen.
+        Y is up, given by the vector from the 'from' point to the 'to' point
+        X is to the right, given by the cross product of the x and z axes
+        Z is out of the screen vector
         """
         from_point = self._from_point[:3]
         to_point = self._to_point[:3]
@@ -98,10 +105,26 @@ class WeldLine:
         """The from point with respect to the weld group coordinate system"""
         return (self.weld_group.transform @ self._from_point)[:3]
 
+    @from_point.setter
+    def from_point(self, value):
+        """Set the from point with respect to the object coordinate system.
+
+        Give the x1 an y1 coordinates.
+        """
+        self._from_point[:2] = value
+
     @property
     def to_point(self):
         """The to point with respect to the weld group coordinate system"""
         return (self.weld_group.transform @ self._to_point)[:3]
+
+    @to_point.setter
+    def to_point(self, value):
+        """Set the to point with respect to the object coordinate system.
+
+        Give the x2 an y2 coordinates.
+        """
+        self._to_point[:2] = value
 
     def center(self):
         """Center of weld line with respect to the weld group coordinate
@@ -117,14 +140,17 @@ class WeldLine:
         """Throat size of weld line"""
         if self.weld_type == "fillet":
             return 1/np.sqrt(2) * self.size
+        elif self.weld_type == "groove":
+            return self.size
 
     def area(self):
         """Area of weld line"""
         return self.throat() * self.length()
 
     def inertia(self):
-        """Inertia matrix w.r.t weld line global coordinate system axes located
-        at the center of the weld line (therefore no parallel axis theorem).
+        """Inertia matrix w.r.t weld line object coordinate system axes located
+        at the center of the weld line (therefore parallel axis theorem is not
+        applied).
         """
         Ix = (1/12) * self.throat() * self.length()**3
         Iy = (1/12) * self.throat()**3 * self.length()
@@ -165,29 +191,63 @@ class WeldGroup:
     Parameters
     ----------
     name : str
-        Name of weld group. A number of automatically assigned if not
+        Name of weld group. A number is automatically assigned if not
         specified.
+
+    size : float
+        Weld size.
+
+    weld_type : str
+        Type of weld. 'Fillet' or "Groove" for example.
     """
 
     count = 0
 
-    def __init__(self, name=None):
+    def __init__(self, name=None, size=0.25, weld_type="fillet", scale=1):
         self.name = name
         if self.name is None:
             self.name = str(WeldGroup.count)
             WeldGroup.count += 1
-
+        self.size = size
+        self.weld_type = weld_type
+        self.scale = scale  # 0 to 1, (+) zoom in
         self.weld_lines = []
         self._transform = np.eye(4)
+
+    def xlim(self):
+        """The x limits of the weld group with respect to the weld group
+        coordinate system.
+        """
+        xs = []
+        for wl in self.weld_lines:
+            xs.append(wl.from_point[0])
+            xs.append(wl.to_point[0])
+
+        xmin, xmax = min(xs), max(xs)
+
+        return 1.25*xmin, 1.25*xmax
+
+    def ylim(self):
+        """The y limits of the weld group with respect to the weld group
+        coordinate system.
+        """
+        ys = []
+        for wl in self.weld_lines:
+            ys.append(wl.from_point[1])
+            ys.append(wl.to_point[1])
+
+        ymin, ymax = min(ys), max(ys)
+
+        return 1.25*ymin, 1.25*ymax
 
     @property
     def transform(self):
         """Weld group transformation matrix"""
         return self._transform
 
-    def add_weld_line(self, from_point, to_point, size, weld_type="fillet"):
-        """Append a weld line to a group"""
-        wl = WeldLine(from_point, to_point, size, weld_type, self)
+    def add_weld_line(self, from_point, to_point):
+        """Append a weld line to a weld group"""
+        wl = WeldLine(from_point, to_point, self)
         self.weld_lines.append(wl)
 
     def length(self):
@@ -317,10 +377,14 @@ class WeldGroup:
         root = tkinter.Tk()
         root.wm_title("Weld Group Properties")
 
+        # plt.style.use("dark_background")
+
         fig = Figure(figsize=(5, 4), dpi=100)
         ax = fig.add_subplot(111)
-        ax.set_xlim(-10, 10)
-        ax.set_ylim(-10, 10)
+
+        ax.set_xlim(*self.xlim())
+        ax.set_ylim(*self.ylim())
+
         ax.set_aspect("equal")
         ax.set_xlabel("X")
         ax.set_ylabel("Y")
@@ -328,8 +392,8 @@ class WeldGroup:
         # grid
         ax.grid()
         ax.minorticks_on()
-        ax.grid(which='major', linestyle='-', linewidth='0.5', color='red')
-        ax.grid(which='minor', linestyle=':', linewidth='0.5', color='black')
+        ax.grid(which='major', linestyle='-', linewidth='0.5', color='black')
+        ax.grid(which='minor', linestyle=':', linewidth='0.5', color='blue')
 
         # orgin and cg points
         ax.scatter(*zip((0, 0), self.cg()[:2]))
@@ -357,12 +421,13 @@ class WeldGroup:
                 lines = ax.plot(xs, ys)
 
                 lines[0].set_color(color)
-                lines[0].set_linewidth(1+size)
+                lines[0].set_linewidth(self.scale + size)
 
             legend_handles.append(lines[0])
             legend_labels.append(r"$t_w=%s$, %s" % (size, weld_type))
 
-        ax.legend(handles=legend_handles, labels=legend_labels, loc="best")
+        ax.legend(handles=legend_handles, labels=legend_labels,
+                  loc="upper left")
 
         # output property box
         textstr = '\n'.join((
@@ -371,14 +436,17 @@ class WeldGroup:
             r'$I_{xcg}=%.3f$' % (self.ixx(), ),
             r'$I_{ycg}=%.3f$' % (self.iyy(), ),
             r'$I_{zcg}=%.3f$' % (self.izz(), ),
-            r'$CG=(%.3f,%.3f,%.3f)$' % (*self.cg(), ),
+            r'$CG_x=%.3f$' % (self.cg()[0], ),
+            r'$CG_y=%.3f$' % (self.cg()[1], ),
             ))
 
         # these are matplotlib.patch.Patch properties
-        props = dict(boxstyle='square', facecolor='wheat', alpha=0.5)
+        props = dict(boxstyle='Square', facecolor='white', alpha=0.75)
 
         # place a text box in upper left in axes coords
-        ax.text(0.015, 0.985, textstr, transform=ax.transAxes, fontsize=10,
+        # ax.text(0.015, 0.985, textstr, transform=ax.transAxes, fontsize=10,
+        #         verticalalignment='top', bbox=props)
+        ax.text(1.03, 0.985, textstr, transform=ax.transAxes, fontsize=10,
                 verticalalignment='top', bbox=props)
 
         canvas = FigureCanvasTkAgg(fig, master=root)  # A tk.DrawingArea.
@@ -396,7 +464,6 @@ class WeldGroup:
             key_press_handler(event, canvas, toolbar)
 
         canvas.mpl_connect("key_press_event", on_key_press)
-
         tkinter.mainloop()
 
 
@@ -406,21 +473,21 @@ class MultiWeldGroup:
 
     Example
     -------
-    Create a multi weld group consisting of two planar welds and plot.
+    Create a multi-weld group consisting of two planar welds and plot.
 
     .. code-block:: python
 
-        >>> wg1 = WeldGroup()
-        >>> wg1.add_weld_line((-2.5, -5), (-2.5, 5), 0.25, "fillet")
-        >>> wg1.add_weld_line((2.5, -5), (2.5, 5), 0.25, "fillet")
-        >>> wg1.add_weld_line((-2.5, 5), (2.5, 5), 0.25, "fillet")
-        >>> wg1.add_weld_line((-2.5, -5), (2.5, -5), 0.25, "fillet")
+        >>> wg1 = WeldGroup(size=0.25, weld_type="fillet")
+        >>> wg1.add_weld_line((-2.5, -5), (-2.5, 5))
+        >>> wg1.add_weld_line((2.5, -5), (2.5, 5)
+        >>> wg1.add_weld_line((-2.5, 5), (2.5, 5))
+        >>> wg1.add_weld_line((-2.5, -5), (2.5, -5))
 
-        >>> wg2 = WeldGroup()
-        >>> wg2.add_weld_line((-2.5, -5), (-2.5, 5), 0.5, "fillet")
-        >>> wg2.add_weld_line((2.5, -5), (2.5, 5), 0.5, "fillet")
-        >>> wg2.add_weld_line((-2.5, 5), (2.5, 5), 0.25, "fillet")
-        >>> wg2.add_weld_line((-2.5, -5), (2.5, -5), 1.25, "fillet")
+        >>> wg2 = WeldGroup(size=0.5, weld_type="fillet")
+        >>> wg2.add_weld_line((-2.5, -5), (-2.5, 5))
+        >>> wg2.add_weld_line((2.5, -5), (2.5, 5))
+        >>> wg2.add_weld_line((-2.5, 5), (2.5, 5))
+        >>> wg2.add_weld_line((-2.5, -5), (2.5, -5))
         >>> wg2.translate(0, 5, 5)
         >>> wg2.rotateX(90)
 
@@ -516,6 +583,7 @@ class MultiWeldGroup:
 
         # plot here
         fig = Figure(figsize=(5, 4), dpi=100)
+        plt.style.use("dark_background")
 
         canvas = FigureCanvasTkAgg(fig, master=root)  # A tk.DrawingArea.
         canvas.draw()
@@ -529,6 +597,10 @@ class MultiWeldGroup:
         ax.set_xlabel("X")
         ax.set_ylabel("Y")
         ax.set_zlabel("Z")
+
+        # ax.w_xaxis.set_pane_color((0, 0, 0, 1))
+        # ax.w_yaxis.set_pane_color((0, 0, 0, 1))
+        # ax.w_zaxis.set_pane_color((0, 0, 0, 1))
 
         # grid
         ax.grid()
@@ -564,7 +636,7 @@ class MultiWeldGroup:
                 lines[0].set_linewidth(1+weld_line.size)
 
             legend_handles.append(lines[0])
-            legend_labels.append(r"WeldGroup [%s]" % weld_group.name)
+            legend_labels.append(r"WeldGroup %s" % weld_group.name)
 
         ax.legend(handles=legend_handles, labels=legend_labels, loc="best")
 
@@ -575,7 +647,9 @@ class MultiWeldGroup:
             r'$I_{xcg}=%.3f$' % (self.ixx(), ),
             r'$I_{ycg}=%.3f$' % (self.iyy(), ),
             r'$I_{zcg}=%.3f$' % (self.izz(), ),
-            r'$CG=(%.3f,%.3f,%.3f)$' % (*self.cg(), ),
+            r'$CG_x=%.3f$' % (self.cg()[0], ),
+            r'$CG_y=%.3f$' % (self.cg()[1], ),
+            r'$CG_z=%.3f$' % (self.cg()[2], ),
             ))
 
         # these are matplotlib.patch.Patch properties
@@ -600,17 +674,17 @@ class MultiWeldGroup:
 
 
 if __name__ == "__main__":
-    wg1 = WeldGroup()
-    wg1.add_weld_line((-2.5, -5), (-2.5, 5), 0.25, "fillet")
-    wg1.add_weld_line((2.5, -5), (2.5, 5), 0.25, "fillet")
-    wg1.add_weld_line((-2.5, 5), (2.5, 5), 0.25, "fillet")
-    wg1.add_weld_line((-2.5, -5), (2.5, -5), 0.25, "fillet")
+    wg1 = WeldGroup(size=0.25, weld_type="fillet")
+    wg1.add_weld_line((-2.5, -5), (-2.5, 5))
+    wg1.add_weld_line((2.5, -5), (2.5, 5))
+    wg1.add_weld_line((-2.5, 5), (2.5, 5))
+    wg1.add_weld_line((-2.5, -5), (2.5, -5))
 
-    # wg2 = WeldGroup()
-    # wg2.add_weld_line((-2.5, -5), (-2.5, 5), 0.5, "fillet")
-    # wg2.add_weld_line((2.5, -5), (2.5, 5), 0.5, "fillet")
-    # wg2.add_weld_line((-2.5, 5), (2.5, 5), 0.25, "fillet")
-    # wg2.add_weld_line((-2.5, -5), (2.5, -5), 1.25, "fillet")
+    # wg2 = WeldGroup(size=0.5, weld_type="fillet")
+    # wg2.add_weld_line((-2.5, -5), (-2.5, 5))
+    # wg2.add_weld_line((2.5, -5), (2.5, 5))
+    # wg2.add_weld_line((-2.5, 5), (2.5, 5))
+    # wg2.add_weld_line((-2.5, -5), (2.5, -5))
     # wg2.translate(0, 5, 5)
     # wg2.rotateX(90)
 
