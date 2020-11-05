@@ -14,16 +14,17 @@ from weldcalc import WeldGroup
 class Single(WeldGroup):
 
     def __init__(self, name=None, height=5, size=0.25, weld_type="fillet"):
-        super(Single, self).__init__(name, size, weld_type)
+        super(Single, self).__init__(name=None, size=size, weld_type=weld_type)
         h = height
         self.add_weld_line((0, -h/2), (0, h/2))
 
 
 class Parallel(WeldGroup):
 
-    def __init__(self, name=None, base=5, height=5, size=0.25,
+    def __init__(self, name="Parallel", base=5, height=5, size=0.25,
                  weld_type="fillet"):
-        super(Parallel, self).__init__(name, size, weld_type)
+        super(Parallel, self).__init__(name=name, size=size,
+                                       weld_type=weld_type)
         b, h = base, height
         self.add_weld_line((-b/2, -h/2), (-b/2, h/2))
         self.add_weld_line((b/2, -h/2), (b/2, h/2))
@@ -31,9 +32,9 @@ class Parallel(WeldGroup):
 
 class Angle(WeldGroup):
 
-    def __init__(self, name=None, base=5, height=5, size=0.25,
+    def __init__(self, name="Angle", base=5, height=5, size=0.25,
                  weld_type="fillet"):
-        super(Angle, self).__init__(name, size, weld_type)
+        super(Angle, self).__init__(name=name, size=size, weld_type=weld_type)
         b, h = base, height
         self.add_weld_line((-b/2, -h/2), (-b/2, h/2))
         self.add_weld_line((-b/2, h/2), (b/2, h/2))
@@ -41,9 +42,10 @@ class Angle(WeldGroup):
 
 class Rectangle(WeldGroup):
 
-    def __init__(self, name=None, base=5, height=5, size=0.25,
+    def __init__(self, name="Rectangle", base=5, height=5, size=0.25,
                  weld_type="fillet"):
-        super(Rectangle, self).__init__(name, size, weld_type)
+        super(Rectangle, self).__init__(name=name, size=size,
+                                        weld_type=weld_type)
         b, h = base, height
         self.add_weld_line((-b/2, -h/2), (-b/2, h/2))
         self.add_weld_line((b/2, -h/2), (b/2, h/2))
@@ -53,9 +55,9 @@ class Rectangle(WeldGroup):
 
 class Tee(WeldGroup):
 
-    def __init__(self, name=None, B=3, H=5, S=0.25, t=0.25, size=0.25,
+    def __init__(self, name="Tee", B=3, H=5, S=0.25, t=0.25, size=0.25,
                  weld_type="fillet"):
-        super(Tee, self).__init__(name, size, weld_type)
+        super(Tee, self).__init__(name=name, size=size, weld_type=weld_type)
         b, h = B, H
         tw, tf = S, t
         self.add_weld_line((-tw/2, -h/2), (-tw/2, h/2-tf))
@@ -65,8 +67,8 @@ class Tee(WeldGroup):
 
 class Circle(WeldGroup):
 
-    def __init__(self, name=None, radius=5, size=0.25, weld_type="fillet"):
-        super(Circle, self).__init__(name, size, weld_type)
+    def __init__(self, name="Circle", radius=5, size=0.25, weld_type="fillet"):
+        super(Circle, self).__init__(name=name, size=size, weld_type=weld_type)
         nol = 100           # approximating weld lines
         ang = 360 / nol     # individual sector angle
         R = radius
@@ -89,9 +91,10 @@ class Circle(WeldGroup):
 
 
 class PartialI(WeldGroup):
-    def __init__(self, name=None, B=3, H=5, S=0.25, t=0.25, size=0.25,
+    def __init__(self, name="PartialI", B=3, H=5, S=0.25, t=0.25, size=0.25,
                  weld_type="fillet"):
-        super(PartialI, self).__init__(name, size, weld_type)
+        super(PartialI, self).__init__(name=name, size=size,
+                                       weld_type=weld_type)
         b, h = B, H
         tw, tf = S, t
 
@@ -103,8 +106,8 @@ class PartialI(WeldGroup):
 
 
 if __name__ == "__main__":
-    # rect = Rectangle()
-    # rect.plot()
+    rect = Rectangle()
+    rect.plot()
 
     # circle = Circle()
     # circle.plot()
@@ -115,8 +118,8 @@ if __name__ == "__main__":
     # ang = Angle()
     # ang.plot()
 
-    tee = Tee()
-    tee.plot()
+    # tee = Tee()
+    # tee.plot()
 
     # parti = PartialI()
     # parti.plot()

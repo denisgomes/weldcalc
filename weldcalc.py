@@ -31,6 +31,8 @@ from mpl_toolkits.mplot3d import Axes3D
 
 import matplotlib.pyplot as plt
 
+from utils import rgb_2_hex_color, hex_2_rgb_color
+
 
 class WeldLine:
     """A single weld line.
@@ -190,7 +192,7 @@ class WeldGroup:
 
     Parameters
     ----------
-    name : str
+    id : str
         Name of weld group. A number is automatically assigned if not
         specified.
 
@@ -199,51 +201,146 @@ class WeldGroup:
 
     weld_type : str
         Type of weld. 'Fillet' or "Groove" for example.
+
+    xlim : tuple
+        A tuple of (min, max) value for the x axis.
+
+    ylim : tuple
+        A tuple of (min, max) value for the y axis.
+
+    color : tuple
+        A rgb color value.
+
+    style : str
+        The line style to be used. Current support for "solid", "dotted",
+        "dashed", and "dashdot".
+
+    scale : int
+        The weld size scale factor. Used to adjust the line weight used to
+        plot the weld group.
     """
 
-    count = 0
+    count = 1
 
-    def __init__(self, name=None, size=0.25, weld_type="fillet", scale=1):
-        self.name = name
-        if self.name is None:
-            self.name = str(WeldGroup.count)
+    def __init__(self, id=None, name=None, size=0.25, weld_type="fillet",
+                 xlim=("auto", "auto"), ylim=("auto", "auto"), color=(0, 0, 0),
+                 style="solid", scale=1):
+        self.id = id
+        if self.id is None:
+            self.id = str(WeldGroup.count)
             WeldGroup.count += 1
+
+        self.name = name if name is not None else "WeldGroup%s" % self.id
         self.size = size
         self.weld_type = weld_type
-        self.scale = scale  # 0 to 1, (+) zoom in
+
+        self.set_default_plotctrl(xlim=xlim, ylim=ylim, color=color,
+                                  style=style, scale=scale)
+
         self.weld_lines = []
+        self._translation = np.array([0, 0, 0])
+        self._rotation = np.array([0, 0, 0])
         self._transform = np.eye(4)
 
+    def set_default_plotctrl(self, xlim=("auto", "auto"),
+                             ylim=("auto", "auto"), color=(0, 0, 0),
+                             style="solid", scale=1):
+        self._xlim = xlim
+        self._ylim = ylim
+        self.color = color
+        self.style = style
+        self.scale = scale  # 1 to 5
+
+    @property
     def xlim(self):
         """The x limits of the weld group with respect to the weld group
         coordinate system.
         """
+        xmin, xmax = self._xlim
+
         xs = []
         for wl in self.weld_lines:
             xs.append(wl.from_point[0])
             xs.append(wl.to_point[0])
 
-        xmin, xmax = min(xs), max(xs)
+        if self._xlim[0] == "auto":
+            xmin = min(xs)
+        if self._xlim[1] == "auto":
+            xmax = max(xs)
 
         return 1.25*xmin, 1.25*xmax
 
+    @xlim.setter
+    def xlim(self, values):
+        self._xlim = values
+
+    @property
     def ylim(self):
         """The y limits of the weld group with respect to the weld group
         coordinate system.
         """
+        ymin, ymax = self._ylim
+
         ys = []
         for wl in self.weld_lines:
             ys.append(wl.from_point[1])
             ys.append(wl.to_point[1])
 
-        ymin, ymax = min(ys), max(ys)
+        if self._ylim[0] == "auto":
+            ymin = min(ys)
+        if self._ylim[1] == "auto":
+            ymax = max(ys)
 
         return 1.25*ymin, 1.25*ymax
+
+    @ylim.setter
+    def ylim(self, values):
+        self._ylim = values
 
     @property
     def transform(self):
         """Weld group transformation matrix"""
         return self._transform
+
+    def reset_transform(self):
+        """Reset the weld group transformation."""
+        self._translation[:] = [0, 0, 0]
+        self._rotation[:] = [0, 0, 0]
+        self._transform[:, :] = np.eye(4)
+
+    def update_transform(self):
+        """Define the translation and rotation inputs and call update_transform
+        to update the transformation matrix.
+        """
+        self.reset_transform()
+        # do translation then rotation(rotx->roty->rotz)
+        self._translate(*self._translation)
+        rotx, roty, rotz = self._rotation
+        self._rotateX(rotx)
+        self._rotateY(roty)
+        self._rotateZ(rotz)
+
+    def reset_plot_ctrl(self):
+        """Reset plot controls to the default values"""
+        self.set_default_plotctrl()
+
+    @property
+    def translation(self):
+        return self._translation
+
+    @translation.setter
+    def translation(self, values):
+        """Set the translation (tx, ty, tz)"""
+        self._translation[:] = values
+
+    @property
+    def rotation(self):
+        return self._rotation
+
+    @rotation.setter
+    def rotation(self, values):
+        """Set the rotations (rotx, roty, rotz)"""
+        self._rotation[:] = values
 
     def add_weld_line(self, from_point, to_point):
         """Append a weld line to a weld group"""
@@ -281,7 +378,7 @@ class WeldGroup:
 
         return group_area
 
-    def translate(self, tx, ty, tz=0):
+    def _translate(self, tx, ty, tz=0):
         """Translate weld group"""
         tmat = np.array([[1, 0, 0, tx],
                          [0, 1, 0, ty],
@@ -291,7 +388,7 @@ class WeldGroup:
                         )
         self._transform = self._transform @ tmat
 
-    def rotateZ(self, angle):
+    def _rotateZ(self, angle):
         """Rotate weld group about the z axis"""
         ang = np.radians(angle)
         rmat = np.array([[np.cos(ang), -np.sin(ang), 0, 0],
@@ -302,7 +399,7 @@ class WeldGroup:
                         )
         self._transform = self._transform @ rmat
 
-    def rotateX(self, angle=0):
+    def _rotateX(self, angle):
         """Rotate weld group about the x axis"""
         ang = np.radians(angle)
         rmat = np.array([[1, 0, 0, 0],
@@ -313,7 +410,7 @@ class WeldGroup:
                         )
         self._transform = self._transform @ rmat
 
-    def rotateY(self, angle=0):
+    def _rotateY(self, angle):
         """Rotate weld group about the y axis"""
         ang = np.radians(angle)
         rmat = np.array([[np.cos(ang), 0, np.sin(ang), 0],
@@ -382,8 +479,8 @@ class WeldGroup:
         fig = Figure(figsize=(5, 4), dpi=100)
         ax = fig.add_subplot(111)
 
-        ax.set_xlim(*self.xlim())
-        ax.set_ylim(*self.ylim())
+        ax.set_xlim(self.xlim)
+        ax.set_ylim(self.ylim)
 
         ax.set_aspect("equal")
         ax.set_xlabel("X")
@@ -424,21 +521,30 @@ class WeldGroup:
                 lines[0].set_linewidth(self.scale + size)
 
             legend_handles.append(lines[0])
-            legend_labels.append(r"$t_w=%s$, %s" % (size, weld_type))
+            legend_labels.append("%s" % weld_type.title())
 
         ax.legend(handles=legend_handles, labels=legend_labels,
                   loc="upper left")
 
         # output property box
-        textstr = '\n'.join((
+        headerstr = "\n".join(("WELDGROUP ID %s" % self.id,
+                               "DATA SUMMARY",
+                               "",
+                               "Name=%s" % self.name,
+                               )
+                              )
+        bodystr = '\n'.join((
+            r'$t_w=%.3f$' % (self.size, ),
             r'$L_w=%.3f$' % (self.length(), ),
             r'$A_w=%.3f$' % (self.area(), ),
-            r'$I_{xcg}=%.3f$' % (self.ixx(), ),
-            r'$I_{ycg}=%.3f$' % (self.iyy(), ),
-            r'$I_{zcg}=%.3f$' % (self.izz(), ),
+            r'$I_{x_{CG}}=%.3f$' % (self.ixx(), ),
+            r'$I_{y_{CG}}=%.3f$' % (self.iyy(), ),
+            r'$I_{z_{CG}}=%.3f$' % (self.izz(), ),
             r'$CG_x=%.3f$' % (self.cg()[0], ),
             r'$CG_y=%.3f$' % (self.cg()[1], ),
             ))
+
+        textstr = "\n".join([headerstr, bodystr])
 
         # these are matplotlib.patch.Patch properties
         props = dict(boxstyle='Square', facecolor='white', alpha=0.75)
@@ -447,7 +553,11 @@ class WeldGroup:
         # ax.text(0.015, 0.985, textstr, transform=ax.transAxes, fontsize=10,
         #         verticalalignment='top', bbox=props)
         ax.text(1.03, 0.985, textstr, transform=ax.transAxes, fontsize=10,
-                verticalalignment='top', bbox=props)
+                verticalalignment='top', bbox=None)
+
+        # fit text box in figure space
+        fig.subplots_adjust(right=0.71)
+        fig.set_tight_layout(True)
 
         canvas = FigureCanvasTkAgg(fig, master=root)  # A tk.DrawingArea.
         canvas.draw()
@@ -488,8 +598,9 @@ class MultiWeldGroup:
         >>> wg2.add_weld_line((2.5, -5), (2.5, 5))
         >>> wg2.add_weld_line((-2.5, 5), (2.5, 5))
         >>> wg2.add_weld_line((-2.5, -5), (2.5, -5))
-        >>> wg2.translate(0, 5, 5)
-        >>> wg2.rotateX(90)
+        >>> wg2.translation = (0, 5, 5)
+        >>> wg2.rotation = (90, 0, 0)
+        >>> wg2.update_transform()
 
         >>> mwg = MultiWeldGroup()
         >>> mwg.add_weld_group(wg1)
@@ -636,7 +747,7 @@ class MultiWeldGroup:
                 lines[0].set_linewidth(1+weld_line.size)
 
             legend_handles.append(lines[0])
-            legend_labels.append(r"WeldGroup %s" % weld_group.name)
+            legend_labels.append(r"WeldGroup %s" % weld_group.id)
 
         ax.legend(handles=legend_handles, labels=legend_labels, loc="best")
 
@@ -644,9 +755,9 @@ class MultiWeldGroup:
         textstr = '\n'.join((
             r'$L_w=%.3f$' % (self.length(), ),
             r'$A_w=%.3f$' % (self.area(), ),
-            r'$I_{xcg}=%.3f$' % (self.ixx(), ),
-            r'$I_{ycg}=%.3f$' % (self.iyy(), ),
-            r'$I_{zcg}=%.3f$' % (self.izz(), ),
+            r'$I_{x_{CG}}=%.3f$' % (self.ixx(), ),
+            r'$I_{y_{CG}}=%.3f$' % (self.iyy(), ),
+            r'$I_{z_{CG}}=%.3f$' % (self.izz(), ),
             r'$CG_x=%.3f$' % (self.cg()[0], ),
             r'$CG_y=%.3f$' % (self.cg()[1], ),
             r'$CG_z=%.3f$' % (self.cg()[2], ),
@@ -685,8 +796,9 @@ if __name__ == "__main__":
     # wg2.add_weld_line((2.5, -5), (2.5, 5))
     # wg2.add_weld_line((-2.5, 5), (2.5, 5))
     # wg2.add_weld_line((-2.5, -5), (2.5, -5))
-    # wg2.translate(0, 5, 5)
-    # wg2.rotateX(90)
+    # wg2.translation = (0, 5, 5)
+    # wg2.rotation = (90, 0, 0)
+    # wg2.update_transform()
 
     mwg = MultiWeldGroup()
     mwg.add_weld_group(wg1)
