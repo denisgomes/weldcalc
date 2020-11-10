@@ -238,8 +238,8 @@ class WeldGroup:
                                   style=style, scale=scale)
 
         self.weld_lines = []
-        self._translation = np.array([0, 0, 0])
-        self._rotation = np.array([0, 0, 0])
+        self._translation = np.array([0., 0., 0.])
+        self._rotation = np.array([0., 0., 0.])
         self._transform = np.eye(4)
 
     def set_default_plotctrl(self, xlim=("auto", "auto"),
@@ -304,8 +304,8 @@ class WeldGroup:
 
     def reset_transform(self):
         """Reset the weld group transformation."""
-        self._translation[:] = [0, 0, 0]
-        self._rotation[:] = [0, 0, 0]
+        self._translation[:] = [0.0, 0.0, 0.0]
+        self._rotation[:] = [0.0, 0.0, 0.0]
         self._transform[:, :] = np.eye(4)
 
     def update_transform(self):

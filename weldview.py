@@ -1,14 +1,17 @@
-"""Weld viewer"""
-
+"""User interface widgets"""
 
 from base64 import b16encode
-
 from tkinter import *
+from tkinter import colorchooser
 from tkinter.ttk import Combobox
+import threading
+import time
 
 from weldcalc import WeldGroup, MultiWeldGroup
-
 from utils import rgb_2_hex_color, hex_2_rgb_color
+
+WELD_TYPES = ("fillet", "groove")
+STYLES = ("solid", "dotted", "dashed", "dashdot")
 
 
 class Application(Frame):
@@ -135,7 +138,9 @@ class WeldLineDetailsWidget(Frame):
         self.type_var = StringVar()
         type_combobox = Combobox(type_frame, textvariable=self.type_var,
                                  justify=RIGHT)
-        type_combobox["values"] = (" Fillet",)
+        type_combobox["values"] = ("fillet",
+                                   "groove",
+                                   )
         type_combobox.grid(row=0, column=0)
         type_combobox.current()
         type_frame.pack()
@@ -145,12 +150,11 @@ class WeldLineDetailsWidget(Frame):
 
 class WeldGroupDetailsWidget(Frame):
 
-    def __init__(self, master):
+    def __init__(self, master, weld_group):
         Frame.__init__(self, master)
         self.master = master
         self._do_layout()
-
-        self.update()
+        self.update(weld_group)     # sets weldgroup
 
     def _do_layout(self):
         main_frame = LabelFrame(self, text="Weld Group Details",
@@ -169,22 +173,22 @@ class WeldGroupDetailsWidget(Frame):
         self.weld_type_var = StringVar()
         type_combobox = Combobox(general_frame,
                                  textvariable=self.weld_type_var,
-                                 justify=CENTER)
-        type_combobox["values"] = (" Fillet",
-                                   " Groove",)
+                                 justify=CENTER,
+                                 state="readonly")
+        type_combobox["values"] = WELD_TYPES
         type_combobox.current()
 
         self.weld_size_var = StringVar()
         size_label = Label(general_frame, text="Size (tw)", anchor="e")
-        size_entry = Entry(general_frame, textvariable=self.weld_size_var,
-                           justify=CENTER)
+        self.size_entry = Entry(general_frame, textvariable=self.weld_size_var,
+                                justify=CENTER)
 
         name_label.grid(row=0, column=0, sticky=E)
         name_entry.grid(row=0, column=1, sticky=E+W)
         type_label.grid(row=1, column=0, sticky=E)
         type_combobox.grid(row=1, column=1, sticky=E+W)
         size_label.grid(row=2, column=0, sticky=E)
-        size_entry.grid(row=2, column=1, sticky=E+W)
+        self.size_entry.grid(row=2, column=1, sticky=E+W)
 
         # transformation
         transform_frame = LabelFrame(main_frame, text="Transform", padx=3,
@@ -276,23 +280,22 @@ class WeldGroupDetailsWidget(Frame):
         self.color_var = StringVar()
         color_label = Label(plot_frame, text="Color")
         self.color_display_button = Button(plot_frame, text=" ",
-                                           background="red")
+                                           background="black",
+                                           command=self.on_color_display_button)
 
         style_label = Label(plot_frame, text="Style")
         self.style_var = StringVar()
         style_combobox = Combobox(plot_frame, textvariable=self.style_var,
-                                  justify=CENTER)
-        style_combobox["values"] = (" Solid",
-                                    " Dotted",
-                                    " Dashed",
-                                    " DashDot",)
+                                  justify=CENTER, state="readonly")
+        style_combobox["values"] = STYLES
         style_combobox.current()
 
         scale_factor_label = Label(plot_frame, text="Size\nFactor")
         self.scale_factor_scale = Scale(plot_frame, from_=1, to=5,
                                         orient=HORIZONTAL)
 
-        plot_reset_button = Button(plot_frame, text="Reset")
+        plot_reset_button = Button(plot_frame, text="Reset",
+                                   command=self.on_plot_reset_button)
 
         # layout
         xlim_min_label.grid(row=0, column=0, sticky=E)
@@ -314,6 +317,9 @@ class WeldGroupDetailsWidget(Frame):
 
         plot_reset_button.grid(row=5, column=0, sticky=W)
 
+        weldgroup_apply_button = Button(main_frame, text="Apply",
+            command=lambda: self.on_weld_group_apply_button(self.weld_group))
+
 
         main_frame.pack(anchor="nw")
         general_frame.pack(anchor="nw", expand=True, fill=X)
@@ -323,8 +329,14 @@ class WeldGroupDetailsWidget(Frame):
         # apply_button.pack(side=RIGHT)
         transform_frame.pack(expand=True, fill=X)
         plot_frame.pack()
+        weldgroup_apply_button.pack(fill=X, side=RIGHT)
 
         self.pack()
+
+    def on_color_display_button(self):
+        current_color = self.get_color_display_button_color()
+        rgb, _ = colorchooser.askcolor(initialcolor=current_color)
+        self.set_color_display_button_color(tuple(map(int, rgb)))
 
     def set_color_display_button_color(self, value):
         self.color_display_button.configure(background=rgb_2_hex_color(value))
@@ -333,40 +345,116 @@ class WeldGroupDetailsWidget(Frame):
         return self.color_display_button.cget("background")
 
     def on_transform_reset_button(self):
-        self.translate_x_var.set(0.0)
-        self.translate_y_var.set(0.0)
-        self.translate_z_var.set(0.0)
-        self.rotate_x_var.set(0.0)
-        self.rotate_y_var.set(0.0)
-        self.rotate_z_var.set(0.0)
+        wg = self.weld_group
 
-    def update(self, name="", weld_type="", weld_size="",
-               tx="", ty="", tz="",
-               rotx="", roty="", rotz="",
-               xlim_min="", xlim_max="",
-               ylim_min="", ylim_max="",
-               style="",
-               color=(0, 0, 0),
-               scale_factor=1):
-        self.name_var.set(name)
-        self.weld_type_var.set(weld_type)
-        self.weld_size_var.set(weld_size)
+        tx, ty, tz = wg.translation
         self.translate_x_var.set(tx)
         self.translate_y_var.set(ty)
         self.translate_z_var.set(tz)
+
+        rotx, roty, rotz = wg.rotation
         self.rotate_x_var.set(rotx)
         self.rotate_y_var.set(roty)
         self.rotate_z_var.set(rotz)
+
+    def on_plot_reset_button(self):
+        wg = self.weld_group
+        xlim_min, xlim_max = wg.xlim
+        ylim_min, ylim_max = wg.ylim
+
         self.xlim_min_var.set(xlim_min)
         self.xlim_max_var.set(xlim_max)
         self.ylim_min_var.set(ylim_min)
         self.ylim_max_var.set(ylim_max)
 
-        self.set_color_display_button_color(color)
-        self.scale_factor_scale.set(scale_factor)
+        self.style_var.set(wg.style)
+        self.set_color_display_button_color(wg.color)
+        self.scale_factor_scale.set(wg.scale)
+
+    def update(self, weld_group):
+        self.weld_group = wg = weld_group
+        self.name_var.set(wg.name)
+        self.weld_type_var.set(wg.weld_type)
+        self.weld_size_var.set(wg.size)
+
+        tx, ty, tz = wg.translation
+        self.translate_x_var.set(tx)
+        self.translate_y_var.set(ty)
+        self.translate_z_var.set(tz)
+
+        rotx, roty, rotz = wg.rotation
+        self.rotate_x_var.set(rotx)
+        self.rotate_y_var.set(roty)
+        self.rotate_z_var.set(rotz)
+
+        xlim_min, xlim_max = wg.xlim
+        self.xlim_min_var.set(xlim_min)
+        self.xlim_max_var.set(xlim_max)
+
+        ylim_min, ylim_max = wg.ylim
+        self.ylim_min_var.set(ylim_min)
+        self.ylim_max_var.set(ylim_max)
+
+        self.style_var.set(wg.style)
+        self.set_color_display_button_color(wg.color)
+        self.scale_factor_scale.set(wg.scale)
+
+    def on_weld_group_apply_button(self, weld_group):
+        wg = weld_group
+
+        wg.name = self.name_var.get()
+        wg.weld_type = self.weld_type_var.get()
+
+        try:
+            weld_size = float(self.weld_size_var.get())
+            if weld_size < 0:
+                raise ValueError
+            wg.size = weld_size
+        except ValueError:
+            self.weld_size_var.set(wg.size)
+
+        try:
+            wg.translation = tuple(map(float, (self.translate_x_var.get(),
+                                               self.translate_y_var.get(),
+                                               self.translate_z_var.get())))
+        except ValueError:
+            tx, ty, tz = wg.translation
+            self.translate_x_var.set(tx)
+            self.translate_y_var.set(ty)
+            self.translate_z_var.set(tz)
+
+        try:
+            wg.rotation = tuple(map(float, (self.rotate_x_var.get(),
+                                            self.rotate_y_var.get(),
+                                            self.rotate_z_var.get())))
+        except ValueError:
+            rotx, roty, rotz = wg.rotation
+            self.rotate_x_var.set(rotx)
+            self.rotate_y_var.set(roty)
+            self.rotate_z_var.set(rotz)
+
+        try:
+            wg.xlim = tuple(map(float, (self.xlim_min_var.get(),
+                                        self.xlim_max_var.get())))
+        except ValueError:
+            xlim_min, xlim_max = wg.xlim
+            self.xlim_min_var.set(xlim_min)
+            self.xlim_max_var.set(xlim_max)
+
+        try:
+            wg.ylim = tuple(map(float, (self.ylim_min_var.get(),
+                                        self.ylim_max_var.get())))
+        except ValueError:
+            ylim_min, ylim_max = wg.ylim
+            self.ylim_min_var.set(ylim_min)
+            self.ylim_max_var.set(ylim_max)
+
+        wg.style = self.style_var.get()
+        wg.color = self.get_color_display_button_color()
+        wg.scale = self.scale_factor_scale.get()
 
 
-class GraphWidget:
+class WeldGroupPlotWidget:
     pass
 
 
@@ -392,5 +480,5 @@ if __name__ == "__main__":
 
     win = Tk()
     win.geometry("350x200")
-    details = WeldGroupDetailsWidget(win)
+    details = WeldGroupDetailsWidget(win, wg1)
     mainloop()
